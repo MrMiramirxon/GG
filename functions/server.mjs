@@ -4,13 +4,12 @@ import { faker } from '@faker-js/faker';
 const app = express();
 const port = 8888;
 
-// Хранилище для пользователей
 const usersStore = {};
+const postsStore = {};
 
-// Генерация случайного пользователя
 function createRandomUser() {
   const user = {
-    userId: faker.string.uuid(),
+    userId: faker.datatype.uuid(), 
     username: faker.internet.userName(),
     email: faker.internet.email(),
     avatar: faker.image.avatar(),
@@ -18,28 +17,52 @@ function createRandomUser() {
     birthdate: faker.date.birthdate(),
     registeredAt: faker.date.past(),
   };
-
-  // Сохранение пользователя в хранилище
   usersStore[user.userId] = user;
   return user;
 }
 
-// Создание набора пользователей
-function generateUsers(numberOfUsers) {
-  Array.from({ length: numberOfUsers }, createRandomUser);
+function createRandomPost(userId) {
+  const imageUrls = [
+    'https://via.placeholder.com/150',
+    'https://via.placeholder.com/200',
+    'https://via.placeholder.com/250',
+    'https://via.placeholder.com/300',
+    'https://via.placeholder.com/350'
+  ];
+
+  return {
+    postId: faker.datatype.uuid(), 
+    userId, 
+    image: faker.helpers.arrayElement(imageUrls),
+    caption: faker.lorem.sentence(),
+    likes: faker.datatype.number({ min: 0, max: 1000 }),
+    dislikes: faker.datatype.number({ min: 0, max: 100 }),
+    comments: Array.from({ length: faker.datatype.number({ min: 0, max: 5 }) }, () => ({
+      commentId: faker.datatype.uuid(), 
+      userId: faker.helpers.arrayElement(Object.keys(usersStore)),
+      text: faker.lorem.sentence(),
+    })),
+  };
 }
 
-// Генерация начальных данных
-generateUsers(1000);
+function generateData(numberOfUsers, numberOfPosts) {
+  Array.from({ length: numberOfUsers }, createRandomUser);
+  
+  Object.keys(usersStore).forEach(userId => {
+    Array.from({ length: numberOfPosts }, () => {
+      const post = createRandomPost(userId);
+      postsStore[post.postId] = post;
+    });
+  });
+}
 
-// Маршрут для получения всех пользователей
+generateData(100, 10); 
+
 app.get('/api/users', (req, res) => {
-  const numberOfUsers = parseInt(req.query.count) || 1000;
-  generateUsers(numberOfUsers);
   res.json(Object.values(usersStore));
 });
 
-// Маршрут для получения пользователя по UUID
+
 app.get('/api/users/:uuid', (req, res) => {
   const user = usersStore[req.params.uuid];
   if (user) {
@@ -49,7 +72,22 @@ app.get('/api/users/:uuid', (req, res) => {
   }
 });
 
-// Запуск сервера
+
+app.get('/api/posts', (req, res) => {
+  res.json(Object.values(postsStore));
+});
+
+
+app.get('/api/posts/:postId', (req, res) => {
+  const post = postsStore[req.params.postId];
+  if (post) {
+    res.json(post);
+  } else {
+    res.status(404).json({ error: 'Post not found' });
+  }
+});
+
+
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
